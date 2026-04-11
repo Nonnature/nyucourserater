@@ -1,0 +1,222 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+// ========================
+// School (学院)
+// ========================
+model School {
+  id          String       @id @default(uuid())
+  code        String       @unique // e.g. "UA", "UY"
+  name        String // e.g. "College of Arts and Science"
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  departments Department[]
+
+  @@map("schools")
+}
+
+// ========================
+// Department (院系)
+// ========================
+model Department {
+  id        String   @id @default(uuid())
+  schoolId  String   @map("school_id")
+  code      String // e.g. "CSCI-UA"
+  name      String // e.g. "Computer Science"
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  school  School   @relation(fields: [schoolId], references: [id])
+  courses Course[]
+
+  @@unique([schoolId, code])
+  @@map("departments")
+}
+
+// ========================
+// Course (课程 — 跨学期存在)
+// ========================
+model Course {
+  id           String   @id @default(uuid())
+  departmentId String   @map("department_id")
+  code         String // full code e.g. "CSCI-UA 101"
+  courseNumber  String   @map("course_number") // e.g. "101"
+  name         String // e.g. "Intro to Computer Science"
+  description  String?  @db.Text
+  minUnits     Float?   @map("min_units")
+  maxUnits     Float?   @map("max_units")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  department   Department      @relation(fields: [departmentId], references: [id])
+  offerings    CourseOffering[]
+  reviews      Review[]
+  gradeReports GradeReport[]
+
+  @@unique([departmentId, courseNumber])
+  @@index([code])
+  @@index([name])
+  @@map("courses")
+}
+
+// ========================
+// CourseOffering (某学期某 section)
+// ========================
+model CourseOffering {
+  id           String   @id @default(uuid())
+  courseId      String   @map("course_id")
+  instructorId String?  @map("instructor_id")
+  semester     String // srcdb code e.g. "1268"
+  semesterName String   @map("semester_name") // e.g. "Fall 2026"
+  sectionCode  String   @map("section_code") // e.g. "001"
+  crn          String // Albert registration number
+  status       String   @default("open") // open / closed / waitlist
+  scheduleType String   @default("LEC") @map("schedule_type") // LEC / SEM / LAB / IND
+  meets        String?  // human-readable e.g. "MW 2-3:15p"
+  meetingTimes Json?    @map("meeting_times") // [{meet_day, start_time, end_time}]
+  startDate    String?  @map("start_date")
+  endDate      String?  @map("end_date")
+  syncedAt     DateTime @default(now()) @map("synced_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  course       Course       @relation(fields: [courseId], references: [id])
+  instructor   Instructor?  @relation(fields: [instructorId], references: [id])
+  reviews      Review[]
+  gradeReports GradeReport[]
+
+  @@unique([courseId, semester, sectionCode])
+  @@unique([semester, crn])
+  @@index([semester])
+  @@map("course_offerings")
+}
+
+// ========================
+// Instructor (讲师)
+// ========================
+model Instructor {
+  id        String           @id @default(uuid())
+  name      String           @unique
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  offerings CourseOffering[]
+
+  @@map("instructors")
+}
+
+// ========================
+// User (用户)
+// ========================
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String?
+  passwordHash String?       @map("password_hash")
+  avatarUrl    String?       @map("avatar_url")
+  isVerified   Boolean       @default(false) @map("is_verified")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  reviews      Review[]
+  gradeReports GradeReport[]
+  accounts     Account[]
+  sessions     Session[]
+
+  @@map("users")
+}
+
+// ========================
+// NextAuth support tables
+// ========================
+model Account {
+  id                String  @id @default(uuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ========================
+// Review (课程评价)
+// ========================
+model Review {
+  id             String          @id @default(uuid())
+  userId         String          @map("user_id")
+  courseId        String          @map("course_id")
+  offeringId     String?         @map("offering_id")
+  rating         Int // 1-5
+  difficulty     Int // 1-5
+  workload       Int // 1-5
+  comment        String          @db.Text
+  wouldRecommend Boolean         @map("would_recommend")
+  semesterTaken  String          @map("semester_taken")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course   Course          @relation(fields: [courseId], references: [id])
+  offering CourseOffering?  @relation(fields: [offeringId], references: [id])
+
+  @@unique([userId, courseId, semesterTaken])
+  @@index([courseId])
+  @@map("reviews")
+}
+
+// ========================
+// GradeReport (成绩上报)
+// ========================
+model GradeReport {
+  id         String          @id @default(uuid())
+  userId     String          @map("user_id")
+  courseId    String          @map("course_id")
+  offeringId String?         @map("offering_id")
+  grade      String // A, A-, B+, B, B-, C+, C, C-, D+, D, F, W, P, INC
+  semester   String
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course   Course          @relation(fields: [courseId], references: [id])
+  offering CourseOffering?  @relation(fields: [offeringId], references: [id])
+
+  @@unique([userId, courseId, semester])
+  @@index([courseId])
+  @@map("grade_reports")
+}
