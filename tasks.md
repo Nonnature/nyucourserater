@@ -82,7 +82,8 @@
 
 **范围:**
 - `GET /api/courses` — 支持参数: `q`(关键词), `school`, `department`, `semester`, `page`, `limit`
-  - 使用 PostgreSQL 全文搜索或 ILIKE 匹配课程名、课程代码
+  - 使用 ILIKE 匹配课程名、课程代码
+  - 支持模糊搜索：`normalizeQuery(q)` 对课程代码模式自动插入空格（如 `CSCI-GA3033` → `CSCI-GA 3033`）
   - 返回分页结果，每条包含课程基本信息 + 评分均值 + 评价数量
 - 首页 (`/`) — 搜索框 + 热门课程推荐（评价最多的课程）
 - 搜索结果页 (`/search?q=...`) — 课程卡片列表、筛选侧边栏（院系/学期）、分页
@@ -93,9 +94,12 @@
 - `Playwright: browser_fill_form` 在搜索框输入 "computer science"，提交
 - `Playwright: browser_snapshot` 确认跳转到搜索结果页，展示匹配课程卡片
 - `Playwright: browser_navigate → localhost:3000/search?q=CSCI-UA+101` 确认精确搜索命中
+- `Playwright: browser_navigate → localhost:3000/search?q=CSCI-GA3033` 确认模糊搜索命中 "CSCI-GA 3033"
+- `Playwright: browser_navigate → localhost:3000/search?q=csci-ua101` 确认小写无空格也能命中
 - `Playwright: browser_navigate → localhost:3000/search?q=xyznotexist` 确认无结果时有提示
 - `Playwright: browser_network_requests` 确认 API 调用 `/api/courses` 返回 200
 - `Playwright: browser_console_messages` 确认无 JS 错误
+- 单元测试: `normalizeQuery` 覆盖上述所有变体
 
 ---
 

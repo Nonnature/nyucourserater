@@ -348,7 +348,23 @@ payload = {
 
 `GET /api/courses?q=&school=&department=&semester=&instructor=&page=&limit=`
 
-搜索使用 PostgreSQL `tsvector` 全文搜索，支持课程名称、描述、课号、讲师名的模糊匹配。
+搜索使用 PostgreSQL ILIKE 匹配课程名称、课程代码。
+
+#### 模糊搜索 (Fuzzy Search)
+
+搜索需支持用户常见的非精确输入。核心策略：在搜索前对查询词进行**预处理/规范化**，生成多个匹配变体。
+
+| 用户输入 | 期望匹配 | 规范化策略 |
+| --- | --- | --- |
+| `CSCI-GA3033` | `CSCI-GA 3033` | 检测课程代码模式（字母+数字紧连），自动插入空格 |
+| `csci-ua101` | `CSCI-UA 101` | 同上 + 大小写不敏感 |
+| `CSCIGA3033` | `CSCI-GA 3033` | 去掉空格/连字符后与课程代码的无空格版本对比 |
+| `intro to cs` | `Intro to Computer Science` | 直接 ILIKE 匹配课程名称 |
+
+**实现方式**: `normalizeQuery(q)` 函数返回一个或多个搜索变体，`buildCourseWhere` 对每个变体生成 `OR` 条件：
+1. 原始查询（ILIKE）
+2. 如果查询匹配课程代码模式 `/^([A-Za-z]+-[A-Za-z]+)(\d+.*)$/`，则插入空格生成规范化代码（如 `CSCI-GA3033` → `CSCI-GA 3033`）
+3. 去除所有空格和连字符后的版本，与课程代码的同样处理版本比较
 
 ---
 
