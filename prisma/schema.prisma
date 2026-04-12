@@ -92,8 +92,8 @@ model CourseOffering {
   reviews      Review[]
   gradeReports GradeReport[]
 
-  @@unique([courseId, semester, sectionCode])
   @@unique([semester, crn])
+  @@index([courseId, semester, sectionCode])
   @@index([semester])
   @@map("course_offerings")
 }
