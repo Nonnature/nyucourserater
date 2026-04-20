@@ -131,27 +131,49 @@
 
 ## Task 6: 用户认证
 
-`[ ]`
+`[x]`
 
-集成 NextAuth.js，支持 Google OAuth 登录和邮箱密码注册/登录，NYU 邮箱自动标记 verified。
+集成 NextAuth.js，仅限 @nyu.edu 邮箱注册，邮件验证，入学学期追踪，访问控制。
 
 **范围:**
 - 配置 NextAuth (Prisma Adapter + Google Provider + Credentials Provider)
-- 注册页 (`/register`) — 邮箱 + 密码 + 显示名称表单
-- 登录页 (`/login`) — 邮箱密码登录 + Google 一键登录按钮
-- 全局 Navbar — 显示登录状态、用户头像、登出按钮
-- `@nyu.edu` 邮箱注册自动设置 `is_verified = true`
-- 保护需要登录的 API（中间件或 route handler 内检查 session）
+- 注册页 (`/register`) — 邮箱 + 密码 + 名称 + 项目类型 + 入学学期
+- 登录页 (`/login`) — 邮箱密码登录 + Google 一键登录
+- 全局 Navbar — skeleton loading 状态 + 已验证/未验证状态显示
+- 邮箱验证流程（Nodemailer + Gmail SMTP）
+- 入学学期自动计算（纯函数 `computeCurrentSemester`）
+- 访问控制（`canViewReviews`, `canWrite`）
+
+### Task 6A: 邮箱验证系统 `[x]`
+- Nodemailer 配置 (`src/lib/email.ts`)
+- 验证 token 生成 + 24h 过期
+- `GET /api/auth/verify?token=xxx` 验证端点
+- `POST /api/auth/resend-verification` 重发端点（2分钟限频）
+- `/verify-email` 页面（显示验证状态 + 重发按钮）
+
+### Task 6B: NYU 限定注册 + 入学追踪 `[x]`
+- 仅限 @nyu.edu 邮箱注册
+- 注册时填写 programLevel + enrollmentSemester
+- `computeCurrentSemester()` 纯函数 + 完整单元测试
+- `PATCH /api/users/me/enrollment` 入学信息修改（仅限1次）
+- `/onboarding` 页面（Google OAuth 用户补填入学信息）
+
+### Task 6C: 访问控制 `[x]`
+- `canViewReviews(user)` — 登录+验证+（第1学期 OR 有成绩）
+- `canWrite(user)` — 登录+验证
+- `getAccessDeniedReason(user)` — UI 提示消息
+- 完整单元测试
+
+### Task 6D: Navbar Loading 修复 `[x]`
+- skeleton 占位��替代不可见的 "..."
+- 已验证用户显示紫色 NYU 徽章
+- 未验证用户显示黄色 "Verify Email" 链接
 
 **验证:**
-- `Playwright: browser_navigate → localhost:3000/register`
-- `Playwright: browser_snapshot` 确认注册表单存在（邮箱、密码、名称字段 + Google 按钮）
-- `Playwright: browser_fill_form` 填写注册信息并提交
-- `Playwright: browser_snapshot` 确认注册成功后跳转，Navbar 显示用户名
-- `Playwright: browser_navigate → localhost:3000/login`
-- `Playwright: browser_fill_form` 填写登录信息并提交
-- `Playwright: browser_snapshot` 确认登录后 Navbar 显示用户信息
-- `Playwright: browser_network_requests` 确认未登录调用受保护 API 返回 401
+- `npm test` — 126 tests pass (semester + access 测试覆盖)
+- 注册表单包含 programLevel + enrollmentSemester 下拉框
+- 非 @nyu.edu 邮箱注册被拒绝
+- Navbar loading 状态显示灰色骨架占位符
 
 ---
 
@@ -159,19 +181,24 @@
 
 `[ ]`
 
-实现评价的创建、展示、编辑、删除功能。
+实现评价的创建、展示、编辑、删除功能，包含社区投票机制和访问控制。
 
 **范围:**
 - API:
-  - `POST /api/reviews` — 创建评价（rating, difficulty, workload, comment, would_recommend, semester_taken, course_id）
+  - `POST /api/reviews` — 创建评价（需 `canWrite` 权限，最低5字评语）
   - `PUT /api/reviews/:id` — 修改自己的评价
   - `DELETE /api/reviews/:id` — 删除自己的评价
-  - `GET /api/courses/:id/reviews` — 获取课程评价列表（分页，支持排序）
+  - `GET /api/courses/:id/reviews` — 获取课程评价列表（需 `canViewReviews` 权限）
+  - `POST /api/reviews/:id/vote` — 投票（UP/DOWN）
+  - `DELETE /api/reviews/:id/vote` — 取消投票
 - 课程详情页中的评价区域:
-  - 评价列表（评分、评语、难度、工作量、学期、作者、Verified 徽章）
-  - 课程综合评��统计（平均 rating、平均 difficulty、平均 workload、推荐率）
-- 写评价表单（在课程详情页内或单独页面）
-  - 星级选择（rating 1-5）、难度/工作���滑块、文字评价、是否推荐、上课学期
+  - 未授权用户看到访问提示（登录/验证/上传成绩）
+  - 评价列表按 net score 排序（upvotes - downvotes）
+  - 评分、评语、难度、工作量、学期、作者、Verified 徽章
+  - 每条评价显示 upvote/downvote 按钮和票数
+  - 课程综合评分统计（平均 rating、平均 difficulty、平均 workload、推荐率）
+- 写评价表单:
+  - 星级选择（rating 1-5）、难度/工作量滑块、文字评价（最低5字）、是否推荐、上课学期
   - 同一用户同一课程同一学期不能重复评价
 
 **验证:**

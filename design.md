@@ -228,16 +228,21 @@ payload = {
 
 ### 4.6 User (用户)
 
-| Field          | Type     | Description                         |
-| -------------- | -------- | ----------------------------------- |
-| id             | UUID     | Primary Key                         |
-| email          | String   | 邮箱（唯一）                        |
-| name           | String   | 显示名称                            |
-| password_hash  | String   | 密码哈希（nullable，OAuth 用户无）  |
-| avatar_url     | String   | 头像地址（nullable）                |
-| is_verified    | Boolean  | 是否验证 NYU 邮箱                   |
-| created_at     | DateTime |                                     |
-| updated_at     | DateTime |                                     |
+| Field                      | Type         | Description                                 |
+| -------------------------- | ------------ | ------------------------------------------- |
+| id                         | UUID         | Primary Key                                 |
+| email                      | String       | 邮箱（唯一，仅限 @nyu.edu）                |
+| name                       | String       | 显示名称                                    |
+| password_hash              | String       | 密码哈希（nullable，OAuth 用户无）          |
+| avatar_url                 | String       | 头像地址（nullable）                        |
+| is_verified                | Boolean      | 是否验证邮箱（通过邮件验证链接）            |
+| verification_token         | String       | 邮箱验证 token（nullable，唯一）            |
+| verification_token_expires | DateTime     | 验证 token 过期时间（24小时）               |
+| program_level              | Enum         | `UNDERGRADUATE` / `MASTERS`                 |
+| enrollment_semester        | String       | 入学学期，如 `Fall 2025`                    |
+| enrollment_edits_remaining | Int          | 入学信息修改剩余次数（默认1）               |
+| created_at                 | DateTime     |                                             |
+| updated_at                 | DateTime     |                                             |
 
 ### 4.7 Review (课程评价)
 
@@ -273,6 +278,18 @@ payload = {
 | created_at     | DateTime |                                      |
 
 **Unique Constraint**: `(user_id, course_id, semester)` — 每人每门课每学期只能报一次成绩
+
+### 4.9 ReviewVote (评价投票)
+
+| Field      | Type     | Description                   |
+| ---------- | -------- | ----------------------------- |
+| id         | UUID     | Primary Key                   |
+| review_id  | UUID     | FK → Review                   |
+| user_id    | UUID     | FK → User                     |
+| vote       | Enum     | `UP` / `DOWN`                 |
+| created_at | DateTime |                               |
+
+**Unique Constraint**: `(user_id, review_id)` — 每人每条评价只能投一票
 
 ---
 
@@ -338,11 +355,26 @@ payload = {
 
 ### 6.4 Auth APIs
 
-| Method | Path                            | Description          |
-| ------ | ------------------------------- | -------------------- |
-| POST   | `/api/auth/register`            | 注册                 |
-| POST   | `/api/auth/login`               | 登录                 |
-| GET    | `/api/auth/session`             | 获取当前会话         |
+| Method | Path                              | Description                    |
+| ------ | --------------------------------- | ------------------------------ |
+| POST   | `/api/auth/register`              | 注册（仅限 @nyu.edu）         |
+| POST   | `/api/auth/login`                 | 登录                           |
+| GET    | `/api/auth/session`               | 获取当前会话                   |
+| GET    | `/api/auth/verify?token=xxx`      | 邮箱验证（点击邮件链接）       |
+| POST   | `/api/auth/resend-verification`   | 重发验证邮件（需登录，2分钟限频）|
+
+### 6.5 User APIs
+
+| Method | Path                              | Description                    |
+| ------ | --------------------------------- | ------------------------------ |
+| PATCH  | `/api/users/me/enrollment`        | 修改入学信息（仅限1次）        |
+
+### 6.6 Vote APIs
+
+| Method | Path                              | Description                    |
+| ------ | --------------------------------- | ------------------------------ |
+| POST   | `/api/reviews/:id/vote`           | 投票（UP/DOWN，可覆盖）       |
+| DELETE | `/api/reviews/:id/vote`           | 取消投票                       |
 
 ### 6.5 Search Query Parameters
 
@@ -472,13 +504,75 @@ ORDER BY
 
 ## 10. Authentication
 
-- **注册**: 支持 email/password 注册，鼓励使用 `@nyu.edu` 邮箱
-- **OAuth**: 支持 Google 登录
-- **NYU 验证**: 使用 `@nyu.edu` 邮箱注册的用户自动标记 `is_verified`，评价旁会显示 "NYU Verified" 徽章
-- **权限**: 
-  - 未登录: 可浏览课程、查看评价和成绩分布
-  - 已登录: 可发布评价、上报成绩
-  - 已验证: 评价显示 Verified 标记
+- **注册**: 仅限 `@nyu.edu` 邮箱注册（非 NYU 邮箱直接拒绝）
+- **邮箱验证**: 注册后发送验证邮件（Nodemailer + Gmail SMTP），用户点击链接后 `is_verified = true`
+  - 验证 token 24小时过期
+  - 重发限频：2分钟内不可重发
+  - 验证前用户可登录但权限受限
+- **OAuth**: 支持 Google 登录，但 `signIn` callback 中限制仅 `@nyu.edu` 账号可通过
+  - Google OAuth 用户首次登录后需在 `/onboarding` 页补填入学信息
+- **注册时必填**: email, password, name, programLevel (UNDERGRADUATE/MASTERS), enrollmentSemester (如 "Fall 2025")
+- **入学信息修改**: 注册后可修改1次入学学期和项目类型（`enrollment_edits_remaining` 默认1）
+
+---
+
+## 12. Enrollment & Semester Tracking
+
+### 入学学期存储
+- 注册时填写 `program_level` (UNDERGRADUATE/MASTERS) 和 `enrollment_semester` ("Fall 2025")
+- 存储在 User 表，注册后仅允许修改1次
+
+### 当前学期计算（纯函数，不存储）
+- **计算规则**: Fall = 一个学期，Spring+Summer = 一个学期，每年2个学期递增
+- **示例** (入学 Fall 2025):
+  - Fall 2025 → 第1学期
+  - Spring+Summer 2026 → 第2学期
+  - Fall 2026 → 第3学期
+- **实现**: `computeCurrentSemester(enrollmentSemester, now)` 在 `src/lib/semester.ts`
+- **课程分类**: 课程列表仍按 Fall/Spring/Summer 三个学期分类展示
+
+---
+
+## 13. Access Control (Give-Before-Get)
+
+### 访问层级
+
+| 用户状态 | 可搜索/浏览课程 | 可查看评论/成绩分布 | 可写评论/上传成绩 |
+| -------- | --------------- | ------------------- | ----------------- |
+| 未登录 | Yes | No | No |
+| 已登录 + 未验证邮箱 | Yes | No | No |
+| 已登录 + 已验证 + 第1学期 | Yes | Yes (豁免) | Yes |
+| 已登录 + 已验证 + 非第1学期 + 无成绩 | Yes | No | Yes |
+| 已登录 + 已验证 + 非第1学期 + 有成绩 | Yes | Yes | Yes |
+
+### 核心逻辑 (`src/lib/access.ts`)
+```
+canViewReviews(user):
+  if not logged in → false
+  if not verified → false
+  if no enrollmentSemester → false
+  if isFirstSemester(computed) → true
+  if gradeReport.count >= 1 → true
+  return false
+```
+
+### 第一学期豁免
+新生第一学期没有成绩可上传，自动豁免上传要求。当学期递增到第2学期后，需至少上传1门成绩才能查看评论。
+
+---
+
+## 14. Review Quality & Voting
+
+### 基础规则
+- 评论文字最低5个字符
+- 所有字段必填（rating, difficulty, workload, comment, wouldRecommend, semesterTaken）
+- 每人每课每学期只能写1条评论（`@@unique([userId, courseId, semesterTaken])`）
+
+### 社区投票
+- 每条评论可被 upvote 或 downvote
+- 每人每条评论只能投1票（`@@unique([userId, reviewId])`）
+- 可以改票（UP → DOWN 或反之）
+- 评论列表按 net score (upvotes - downvotes) 排序
 
 ---
 

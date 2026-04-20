@@ -3,24 +3,52 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { getEnrollmentSemesterOptions } from "@/lib/semester";
+
+const semesterOptions = getEnrollmentSemesterOptions();
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [programLevel, setProgramLevel] = useState("");
+  const [enrollmentSemester, setEnrollmentSemester] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    // Client-side NYU email check
+    if (!email.toLowerCase().trim().endsWith("@nyu.edu")) {
+      setError("Only @nyu.edu email addresses are accepted");
+      return;
+    }
+
+    if (!programLevel) {
+      setError("Please select your program level");
+      return;
+    }
+
+    if (!enrollmentSemester) {
+      setError("Please select your enrollment semester");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({
+          email,
+          password,
+          name,
+          programLevel,
+          enrollmentSemester,
+        }),
       });
 
       if (!res.ok) {
@@ -30,12 +58,14 @@ export default function RegisterPage() {
         return;
       }
 
-      // Auto sign in after registration
+      // Auto sign in then redirect to verify-email page
       await signIn("credentials", {
         email,
         password,
-        callbackUrl: "/",
+        redirect: false,
       });
+
+      window.location.href = "/verify-email";
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
@@ -56,7 +86,10 @@ export default function RegisterPage() {
         )}
 
         <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="name"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Display Name
           </label>
           <input
@@ -71,7 +104,10 @@ export default function RegisterPage() {
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Email
           </label>
           <input
@@ -84,12 +120,15 @@ export default function RegisterPage() {
             placeholder="you@nyu.edu"
           />
           <p className="mt-1 text-xs text-gray-500">
-            Use your @nyu.edu email to get a verified badge
+            Only @nyu.edu emails are accepted
           </p>
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Password
           </label>
           <input
@@ -102,6 +141,52 @@ export default function RegisterPage() {
             className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
             placeholder="At least 6 characters"
           />
+        </div>
+
+        <div>
+          <label
+            htmlFor="programLevel"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Program Level
+          </label>
+          <select
+            id="programLevel"
+            required
+            value={programLevel}
+            onChange={(e) => setProgramLevel(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          >
+            <option value="">Select program...</option>
+            <option value="UNDERGRADUATE">Undergraduate</option>
+            <option value="MASTERS">Masters</option>
+          </select>
+        </div>
+
+        <div>
+          <label
+            htmlFor="enrollmentSemester"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Enrollment Semester
+          </label>
+          <select
+            id="enrollmentSemester"
+            required
+            value={enrollmentSemester}
+            onChange={(e) => setEnrollmentSemester(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          >
+            <option value="">Select semester...</option>
+            {semesterOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            The semester you first enrolled at NYU. You can change this once if needed.
+          </p>
         </div>
 
         <button

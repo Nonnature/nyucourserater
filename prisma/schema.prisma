@@ -9,6 +9,19 @@ datasource db {
 }
 
 // ========================
+// Enums
+// ========================
+enum ProgramLevel {
+  UNDERGRADUATE
+  MASTERS
+}
+
+enum VoteType {
+  UP
+  DOWN
+}
+
+// ========================
 // School (学院)
 // ========================
 model School {
@@ -115,18 +128,28 @@ model Instructor {
 // User (用户)
 // ========================
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique
-  name         String?
-  passwordHash String?       @map("password_hash")
-  avatarUrl    String?       @map("avatar_url")
-  isVerified   Boolean       @default(false) @map("is_verified")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  reviews      Review[]
-  gradeReports GradeReport[]
-  accounts     Account[]
-  sessions     Session[]
+  id                       String        @id @default(uuid())
+  email                    String        @unique
+  name                     String?
+  passwordHash             String?       @map("password_hash")
+  avatarUrl                String?       @map("avatar_url")
+  isVerified               Boolean       @default(false) @map("is_verified")
+  // Email verification
+  verificationToken        String?       @unique @map("verification_token")
+  verificationTokenExpires DateTime?     @map("verification_token_expires")
+  // Enrollment info
+  programLevel             ProgramLevel? @map("program_level")
+  enrollmentSemester       String?       @map("enrollment_semester")
+  enrollmentEditsRemaining Int           @default(1) @map("enrollment_edits_remaining")
+  // Timestamps
+  createdAt                DateTime      @default(now()) @map("created_at")
+  updatedAt                DateTime      @updatedAt @map("updated_at")
+  // Relations
+  reviews                  Review[]
+  gradeReports             GradeReport[]
+  accounts                 Account[]
+  sessions                 Session[]
+  reviewVotes              ReviewVote[]
 
   @@map("users")
 }
@@ -194,6 +217,7 @@ model Review {
   user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   course   Course          @relation(fields: [courseId], references: [id])
   offering CourseOffering?  @relation(fields: [offeringId], references: [id])
+  votes    ReviewVote[]
 
   @@unique([userId, courseId, semesterTaken])
   @@index([courseId])
@@ -219,4 +243,22 @@ model GradeReport {
   @@unique([userId, courseId, semester])
   @@index([courseId])
   @@map("grade_reports")
+}
+
+// ========================
+// ReviewVote (评价投票)
+// ========================
+model ReviewVote {
+  id        String   @id @default(uuid())
+  reviewId  String   @map("review_id")
+  userId    String   @map("user_id")
+  vote      VoteType
+  createdAt DateTime @default(now()) @map("created_at")
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@index([reviewId])
+  @@map("review_votes")
 }

@@ -63,19 +63,33 @@ export const authOptions: NextAuthOptions = {
       if (token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
-          select: { id: true, isVerified: true },
+          select: { id: true, isVerified: true, enrollmentSemester: true },
         });
         if (dbUser) {
           token.id = dbUser.id;
           token.isVerified = dbUser.isVerified;
+          token.enrollmentSemester = dbUser.enrollmentSemester;
         }
       }
       return token;
+    },
+    async signIn({ user, account }) {
+      // Reject non-NYU Google accounts
+      if (account?.provider === "google") {
+        if (!user.email || !isNyuEmail(user.email)) {
+          return false;
+        }
+      }
+      return true;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.isVerified = token.isVerified as boolean;
+        session.user.enrollmentSemester = token.enrollmentSemester as
+          | string
+          | null
+          | undefined;
       }
       return session;
     },

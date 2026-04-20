@@ -15,16 +15,26 @@ export default function Navbar() {
 
         <div className="flex items-center gap-4">
           {status === "loading" && (
-            <span className="text-sm text-gray-400">...</span>
+            <div className="flex items-center gap-4 animate-pulse">
+              <div className="h-4 w-24 rounded bg-gray-200" />
+              <div className="h-8 w-20 rounded-lg bg-gray-200" />
+            </div>
           )}
           {status === "authenticated" && session?.user && (
             <>
               <span className="text-sm text-gray-700">
                 {session.user.name}
-                {session.user.isVerified && (
+                {session.user.isVerified ? (
                   <span className="ml-1 inline-block rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700">
                     NYU
                   </span>
+                ) : (
+                  <Link
+                    href="/verify-email"
+                    className="ml-1 inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-700"
+                  >
+                    Verify Email
+                  </Link>
                 )}
               </span>
               <button

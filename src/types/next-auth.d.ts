@@ -8,6 +8,7 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       isVerified: boolean;
+      enrollmentSemester?: string | null;
     };
   }
 }
@@ -16,5 +17,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
     isVerified?: boolean;
+    enrollmentSemester?: string | null;
   }
 }
