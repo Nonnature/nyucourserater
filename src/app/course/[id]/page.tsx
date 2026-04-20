@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { groupOfferingsBySemester } from "@/lib/offerings";
+import ReviewsSection from "./reviews-section";
 
 interface CoursePageProps {
   params: Promise<{ id: string }>;
@@ -190,17 +191,8 @@ export default async function CoursePage({ params }: CoursePageProps) {
         </p>
       </section>
 
-      {/* Reviews placeholder */}
-      <section className="mb-8 rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900">
-          Reviews ({reviewCount})
-        </h2>
-        <p className="mt-2 text-sm text-gray-400">
-          {reviewCount > 0
-            ? "Reviews will be displayed here."
-            : "No reviews yet. Be the first to write one!"}
-        </p>
-      </section>
+      {/* Reviews */}
+      <ReviewsSection courseId={course.id} reviewCount={reviewCount} />
 
       {/* Offerings by semester */}
       <section>
