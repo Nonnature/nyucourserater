@@ -22,21 +22,25 @@ export default function Navbar() {
           )}
           {status === "authenticated" && session?.user && (
             <>
-              <span className="text-sm text-gray-700">
+              <Link
+                href="/profile"
+                className="text-sm text-gray-700 hover:text-purple-700"
+              >
                 {session.user.name}
                 {session.user.isVerified ? (
                   <span className="ml-1 inline-block rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700">
                     NYU
                   </span>
-                ) : (
-                  <Link
-                    href="/verify-email"
-                    className="ml-1 inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-700"
-                  >
-                    Verify Email
-                  </Link>
-                )}
-              </span>
+                ) : null}
+              </Link>
+              {!session.user.isVerified && (
+                <Link
+                  href="/verify-email"
+                  className="inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-700"
+                >
+                  Verify Email
+                </Link>
+              )}
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="text-sm text-gray-500 hover:text-gray-700"

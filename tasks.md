@@ -52,7 +52,7 @@
 
 ## Task 3: 课程数据爬虫
 
-`[ ]`
+`[x]`
 
 实现从 NYU Bulletins FOSE API 拉取课程数据并写入数据库的同步脚本。
 
@@ -76,7 +76,7 @@
 
 ## Task 4: 课程搜索（API + 前端）
 
-`[ ]`
+`[x]`
 
 实现课程搜索 API 和前端搜索界面，包含首页搜索框和搜索结果页。
 
@@ -105,7 +105,7 @@
 
 ## Task 5: 课程详情页
 
-`[ ]`
+`[x]`
 
 实现课程详情页面，展示课程信息、各学期开设情况（section 列表、讲师、时间）。
 
@@ -150,6 +150,7 @@
 - `GET /api/auth/verify?token=xxx` 验证端点
 - `POST /api/auth/resend-verification` 重发端点（2分钟限频）
 - `/verify-email` 页面（显示验证状态 + 重发按钮）
+- **⚠️ 待完成**: 发件邮箱未选定，`SMTP_HOST`/`SMTP_USER`/`SMTP_PASS`/`EMAIL_FROM` 环境变量仍为空。用户将在后续选定邮件服务商（Gmail SMTP / SendGrid / Resend 等）后填入。
 
 ### Task 6B: NYU 限定注册 + 入学追踪 `[x]`
 - 仅限 @nyu.edu 邮箱注册
@@ -253,7 +254,7 @@
 
 ## Task 9: 个人中心
 
-`[ ]`
+`[x]`
 
 实现用户个人中心页面，管理自己的评价和成绩记录。
 
