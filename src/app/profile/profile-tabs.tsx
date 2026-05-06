@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import type { MyReviewResponse, MyGradeResponse } from "@/lib/profile";
 
@@ -13,43 +13,91 @@ type Tab = "reviews" | "grades";
 
 export default function ProfileTabs({ reviews, grades }: Props) {
   const [tab, setTab] = useState<Tab>("reviews");
+  const reviewsTabRef = useRef<HTMLButtonElement>(null);
+  const gradesTabRef = useRef<HTMLButtonElement>(null);
+
+  function handleTabKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const next: Tab = tab === "reviews" ? "grades" : "reviews";
+    setTab(next);
+    (next === "grades" ? gradesTabRef : reviewsTabRef).current?.focus();
+  }
 
   return (
     <div>
-      <div className="mb-6 border-b border-gray-200 flex gap-6">
+      <div
+        role="tablist"
+        aria-label="Profile sections"
+        className="mb-6 border-b border-gray-200 flex gap-6"
+      >
         <TabButton
+          ref={reviewsTabRef}
           active={tab === "reviews"}
           onClick={() => setTab("reviews")}
+          onKeyDown={handleTabKeyDown}
           label={`My Reviews (${reviews.length})`}
+          panelId="profile-panel-reviews"
+          tabId="profile-tab-reviews"
         />
         <TabButton
+          ref={gradesTabRef}
           active={tab === "grades"}
           onClick={() => setTab("grades")}
+          onKeyDown={handleTabKeyDown}
           label={`My Grades (${grades.length})`}
+          panelId="profile-panel-grades"
+          tabId="profile-tab-grades"
         />
       </div>
 
-      {tab === "reviews" ? (
-        <ReviewsList reviews={reviews} />
-      ) : (
-        <GradesList grades={grades} />
-      )}
+      <div
+        role="tabpanel"
+        id="profile-panel-reviews"
+        aria-labelledby="profile-tab-reviews"
+        hidden={tab !== "reviews"}
+      >
+        {tab === "reviews" && <ReviewsList reviews={reviews} />}
+      </div>
+      <div
+        role="tabpanel"
+        id="profile-panel-grades"
+        aria-labelledby="profile-tab-grades"
+        hidden={tab !== "grades"}
+      >
+        {tab === "grades" && <GradesList grades={grades} />}
+      </div>
     </div>
   );
 }
 
-function TabButton({
+const TabButton = function TabButton({
+  ref,
   active,
   onClick,
+  onKeyDown,
   label,
+  panelId,
+  tabId,
 }: {
+  ref?: React.Ref<HTMLButtonElement>;
   active: boolean;
   onClick: () => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
   label: string;
+  panelId: string;
+  tabId: string;
 }) {
   return (
     <button
+      ref={ref}
+      role="tab"
+      id={tabId}
+      aria-selected={active}
+      aria-controls={panelId}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
+      onKeyDown={onKeyDown}
       className={`pb-3 -mb-px text-sm font-medium border-b-2 transition-colors ${
         active
           ? "border-purple-700 text-purple-700"
@@ -59,7 +107,7 @@ function TabButton({
       {label}
     </button>
   );
-}
+};
 
 function ReviewsList({ reviews }: { reviews: MyReviewResponse[] }) {
   if (reviews.length === 0) {
@@ -111,10 +159,10 @@ function ReviewsList({ reviews }: { reviews: MyReviewResponse[] }) {
 
           <div className="mt-3 flex items-center justify-between text-xs">
             <span className="text-gray-400">
-              Updated {new Date(r.updatedAt).toLocaleDateString()}
+              Updated {r.updatedAt.slice(0, 10)}
             </span>
             <Link
-              href={`/course/${r.course.id}#reviews`}
+              href={`/course/${r.course.id}?editReview=${r.id}#reviews`}
               className="text-purple-700 hover:text-purple-900 font-medium"
             >
               Edit / Delete →
@@ -159,7 +207,7 @@ function GradesList({ grades }: { grades: MyGradeResponse[] }) {
               {g.grade}
             </span>
             <Link
-              href={`/course/${g.course.id}#grades`}
+              href={`/course/${g.course.id}?editGrade=${g.id}#grades`}
               className="text-xs text-purple-700 hover:text-purple-900 font-medium"
             >
               Edit →
