@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import GradeReportForm from "./grade-report-form";
 
@@ -72,11 +73,14 @@ export default function GradeSection({
   gradeCount: initialCount,
 }: GradeSectionProps) {
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const editGradeId = searchParams.get("editGrade");
   const [distribution, setDistribution] = useState<GradeDistribution[]>([]);
   const [total, setTotal] = useState(initialCount);
   const [semesters, setSemesters] = useState<string[]>([]);
   const [instructors, setInstructors] = useState<string[]>([]);
   const [userReport, setUserReport] = useState<UserReport[] | null>(null);
+  const [editingReport, setEditingReport] = useState<UserReport | null>(null);
   const [selectedSemester, setSelectedSemester] = useState("");
   const [selectedInstructor, setSelectedInstructor] = useState("");
   const [loading, setLoading] = useState(true);
@@ -126,6 +130,15 @@ export default function GradeSection({
     }
   }, [status, fetchGrades]);
 
+  useEffect(() => {
+    if (!editGradeId || !userReport) return;
+    const match = userReport.find((r) => r.id === editGradeId);
+    if (match) {
+      setEditingReport(match);
+      setShowForm(true);
+    }
+  }, [editGradeId, userReport]);
+
   function handleFilterChange(semester: string, instructor: string) {
     setSelectedSemester(semester);
     setSelectedInstructor(instructor);
@@ -134,10 +147,21 @@ export default function GradeSection({
 
   function handleReportSaved() {
     setShowForm(false);
+    setEditingReport(null);
     fetchGrades(
       selectedSemester || undefined,
       selectedInstructor || undefined
     );
+  }
+
+  function handleReportFormCancel() {
+    setShowForm(false);
+    setEditingReport(null);
+  }
+
+  function handleOpenForm() {
+    setEditingReport(userReport?.[0] ?? null);
+    setShowForm(true);
   }
 
   const maxPercentage = Math.max(...distribution.map((d) => d.percentage), 0);
@@ -154,14 +178,17 @@ export default function GradeSection({
   }
 
   return (
-    <section className="mb-8 rounded-lg border border-gray-200 p-6">
+    <section
+      id="grades"
+      className="mb-8 rounded-lg border border-gray-200 p-6 scroll-mt-20"
+    >
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900">
           Grade Distribution
         </h2>
         {status === "authenticated" && session?.user?.isVerified && !showForm && (
           <button
-            onClick={() => setShowForm(true)}
+            onClick={handleOpenForm}
             className="rounded-lg bg-purple-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-purple-800 transition-colors"
           >
             Report Grade
@@ -173,9 +200,9 @@ export default function GradeSection({
         <div className="mb-6">
           <GradeReportForm
             courseId={courseId}
-            existingReport={userReport?.[0] ?? null}
+            existingReport={editingReport}
             onSaved={handleReportSaved}
-            onCancel={() => setShowForm(false)}
+            onCancel={handleReportFormCancel}
           />
         </div>
       )}

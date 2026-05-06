@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ReviewForm from "./review-form";
 
@@ -210,6 +211,8 @@ export default function ReviewsSection({
   reviewCount: initialCount,
 }: ReviewsSectionProps) {
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const editReviewId = searchParams.get("editReview");
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [restricted, setRestricted] = useState(false);
@@ -217,6 +220,7 @@ export default function ReviewsSection({
   const [showForm, setShowForm] = useState(false);
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [reviewCount, setReviewCount] = useState(initialCount);
+  const [autoEditApplied, setAutoEditApplied] = useState(false);
 
   const fetchReviews = useCallback(async () => {
     setLoading(true);
@@ -244,6 +248,16 @@ export default function ReviewsSection({
       fetchReviews();
     }
   }, [status, fetchReviews]);
+
+  useEffect(() => {
+    if (autoEditApplied || !editReviewId || reviews.length === 0) return;
+    const match = reviews.find((r) => r.id === editReviewId && r.isOwner);
+    if (match) {
+      setEditingReview(match);
+      setShowForm(true);
+      setAutoEditApplied(true);
+    }
+  }, [editReviewId, reviews, autoEditApplied]);
 
   function handleVoteChange(
     reviewId: string,
@@ -286,7 +300,10 @@ export default function ReviewsSection({
   }
 
   return (
-    <section className="mb-8 rounded-lg border border-gray-200 p-6">
+    <section
+      id="reviews"
+      className="mb-8 rounded-lg border border-gray-200 p-6 scroll-mt-20"
+    >
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900">
           Reviews ({reviewCount})
